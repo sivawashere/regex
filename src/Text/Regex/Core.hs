@@ -13,4 +13,4 @@ data Regex σ
              -- | Alternation
              | (Regex σ) :+ (Regex σ)
              -- | Kleene star
-             | (:*) (Regex σ) deriving (Eq)
+             | (:*) (Regex σ)

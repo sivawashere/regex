@@ -11,8 +11,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Text.Regex
-  -- other-modules:       
-  -- other-extensions:    
-  build-depends:       base >=4.7 && <4.8, base-unicode-symbols, text, containers, containers-unicode-symbols, parsec
+  build-depends:       base >=4.7 && <4.8, base-unicode-symbols,
+                       text, containers, containers-unicode-symbols, parsec
   hs-source-dirs:      src
   default-language:    Haskell2010
