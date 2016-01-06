@@ -1,0 +1,18 @@
+name:                regex
+version:             0.1.0.0
+synopsis:            A regular expression processor
+homepage:            github.com/sivawashere/regex
+author:              Siva Somayyajula
+maintainer:          sks266@cornell.edu
+copyright:           (c) Siva Somayyajula
+category:            Text
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:     Text.Regex
+  -- other-modules:       
+  -- other-extensions:    
+  build-depends:       base >=4.7 && <4.8, base-unicode-symbols, text, containers, containers-unicode-symbols, parsec
+  hs-source-dirs:      src
+  default-language:    Haskell2010
