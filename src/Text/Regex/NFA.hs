@@ -6,9 +6,9 @@ import qualified Prelude as P
 import Prelude.Unicode (ℤ, (≡), (∨), (∧), (∘))
 import Data.Ord.Unicode ((≤), (≥))
 
-import Data.Set (Set, fromList, toList, toAscList,
-                 singleton, unions, map, null, filter,
-                 findMin, findMax, insert, delete)
+import Data.Set (Set, fromList, toList,
+                 toAscList, singleton, unions,
+                 map, null, filter, insert, delete)
 import Data.Set.Unicode ((∅), (∋), (∩), (∪), (∖))
 
 import Control.Monad (foldM)
@@ -28,6 +28,10 @@ data NFA q σ = NFA {
     f  ∷ Set q
 }
 
+-- | Determines whether an NFA accepts an input string
+accepts ∷ Ord q ⇒ NFA q σ → [σ] → Bool
+accepts NFA{..} = any ((∋)f) ∘ foldM ((toList ∘) ∘ δ) q₀
+
 -- | Represents NFA-ε
 type NFAε q σ = NFA q (Maybe σ)
 
@@ -36,10 +40,6 @@ type RNFA q σ = (Set q, NFA q σ)
 
 -- | Analogous to the RNFA, but for NFA-ε
 type RNFAε q σ = (Set q, NFAε q σ)
-
--- | Determines whether an NFA accepts an input string
-accepts ∷ Ord q ⇒ NFA q σ → [σ] → Bool
-accepts NFA{..} = any ((∋)f) ∘ foldM ((toList ∘) ∘ δ) q₀
 
 -- | Converts a regex to an NFA-ε that obeys the following invariants
 --      * Generated automata have exactly one final state
@@ -64,39 +64,38 @@ toNFAε = let zero = singleton 0
     r₁ :⧺ r₂ → (q', NFA δ' q₀₁ $ singleton f₂') where
         (q₁, NFA {q₀ = q₀₁, δ = δ₁, f = f₁}) = toNFAε r₁
         (q₂, NFA {q₀ = q₀₂, δ = δ₂, f = f₂}) = toNFAε r₂
+        f₁' = hd f₁
         
-        update = (findMax q₁) - (findMin q₂)
+        d = f₁' - q₀₂
         
-        (f₁', f₂') = (hd f₁, hd f₂ + update)
-        q₂'        = map (+ update) $ delete q₀₂ q₂
-        q'         = q₁ ∪ q₂'
+        (f₂', q₂') = (hd f₂ + d, map (+ d) $ delete q₀₂ q₂)
+        q'  = q₁ ∪ q₂'
         
         δ' q s | q ≥ q₀₁ ∧ q < f₁' = δ₁ q s
-               | q ≥ f₁' ∧ q ≤ f₂' = map (+ update) $ δ₂ (q - update) s
+               | q ≥ f₁' ∧ q ≤ f₂' = map (+ d) $ δ₂ (q - d) s
                | otherwise         = (∅)
         
     r₁ :+ r₂ → (q', NFA δ' q₀' f') where
         (q₁, NFA {q₀ = q₀₁, δ = δ₁, f = f₁}) = toNFAε r₁
         (q₂, NFA {q₀ = q₀₂, δ = δ₂, f = f₂}) = toNFAε r₂
+        f₁' = hd f₁
         
-        update = (findMax q₁) - (findMin q₂) + 1
+        d = f₁' - q₀₂ + 1
         
-        q₂'        = map (+ update) q₂
-        (f₁', f₂') = (hd f₁, hd f₂ + update)
         (q₀', f')  = (q₀₁ - 1, singleton $ f₂' + 1)
-        q₀₂'       = q₀₂ + update
-        q'         = insert q₀' $ q₁ ∪ q₂' ∪ f'
+        (f₂', q₂') = (hd f₂ + d, map (+ d) q₂)
+        (q₀₂', q') = (q₀₂ + d, insert q₀' $ q₁ ∪ q₂' ∪ f')
         
         δ' q s |  q ≡ q₀'             ∧ s ≡ Nothing = fromList [q₀₁, q₀₂']
                | (q ≡ f₁'  ∨ q ≡ f₂') ∧ s ≡ Nothing = f'
                |  q ≥ q₀₁  ∧ q ≤ f₁'                = δ₁ q s
-               |  q ≥ q₀₂' ∧ q ≤ f₂'                = map (+ update) $ δ₂ (q - update) s
+               |  q ≥ q₀₂' ∧ q ≤ f₂'                = map (+ d) $ δ₂ (q - d) s
                | otherwise                          = (∅)
                
     (:*) r → (q', NFA δ' q₀' f') where
         (q, NFA{..})  = toNFAε r
-        (q₀', f₀)     = (findMin q - 1, hd f)
-        f'            = singleton $ findMax q + 1
+        (q₀', f₀)     = (q₀ - 1, hd f)
+        f'            = singleton $ f₀ + 1
         q'            = insert q₀' $ q ∪ f'
         
         δ' q s | (q ≡ q₀' ∨ q ≡ f₀) ∧ s ≡ Nothing = singleton q₀ ∪ f'
@@ -114,8 +113,8 @@ toNFA (q, NFA{..}) = (q, NFA δ' q₀ f') where
         where diff = (unions $ toList $ map f set) ∖ set
 
 -- | Converts an NFA to a DFA
-toDFA ∷ Ord q ⇒ Set q → NFA q σ → DFA (Set q) σ
-toDFA q NFA{..} = DFA δ' (singleton q₀) f' where
+toDFA ∷ Ord q ⇒ RNFA q σ → DFA (Set q) σ
+toDFA (q, NFA{..}) = DFA δ' (singleton q₀) f' where
     δ' q'' s = unions $ toList $ map (flip δ s) q''
     q'       = fromList $ P.map fromList $ subsequences $ toAscList q
     f'       = filter (not ∘ null ∘ (∩) f) q'
