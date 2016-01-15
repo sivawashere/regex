@@ -6,11 +6,11 @@ import GHC.Exts (IsString(..))
 import Text.Parsec.Expr (Assoc(..), Operator(..),
                          buildExpressionParser)
 import Text.ParserCombinators.Parsec (Parser, parse, oneOf,
-                                      noneOf, choice)
+                                      noneOf, choice, eof)
 import Text.ParserCombinators.Parsec.Language (emptyDef)
 import qualified Text.ParserCombinators.Parsec.Token as T
 
-import Control.Applicative ((<$>))
+import Control.Applicative ((<$>), (<*))
 
 import Text.Regex.Core
 
@@ -40,6 +40,6 @@ regex = buildExpressionParser
         res name f    =      resName name >> return f
 
 instance IsString (Regex Char) where
-    fromString re = case parse regex "Regex" re of
+    fromString re = case parse (regex <* eof) "Regex" re of
         Right r    → r
         Left  err  → error $ show err
